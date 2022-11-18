@@ -7,17 +7,17 @@ import org.springframework.stereotype.Component
 
 @Component
 @RequiredArgsConstructor
-class TraceRecorderTLV1(private val contextHolder: TraceIdentification) {
+class TraceRecorderTLV1(private val contextHolder: TraceIdContextHolder) {
     private val log = LoggerFactory.getLogger(TraceRecorderTLV1::class.java)
-    private val COMPLETE_PREFIX = "<--"
-    private val START_PREFIX = "-->"
-    private val EX_PREFIX = "<x-"
+    private val completePrefix = "<--"
+    private val startPrefix = "-->"
+    private val exPrefix = "<x-"
 
     fun begin(message: String): TraceStatus {
         contextHolder.begin()
         val startTimeMs = System.currentTimeMillis()
 
-        log.info("[{}] {}{}", contextHolder.getId(), addSpace(START_PREFIX, contextHolder.getLevel()), message)
+        log.info("[{}] {}{}", contextHolder.getId(), addSpace(startPrefix, contextHolder.getLevel()), message)
 
         return TraceStatus(contextHolder.getTraceId(), startTimeMs, message)
     }
@@ -38,17 +38,21 @@ class TraceRecorderTLV1(private val contextHolder: TraceIdentification) {
         val traceId = status.traceId
 
         if (e == null) {
-            log.info("[{}] {}{} time={}ms", traceId.id, addSpace(COMPLETE_PREFIX, traceId.level), status.message, resultTime)
+            log.info("[{}] {}{} time={}ms", traceId.id, addSpace(completePrefix, traceId.level), status.message, resultTime)
         } else {
-            log.info("[{}] {}{} time={}ms ex={}", traceId.id, addSpace(EX_PREFIX, traceId.level), status.message, resultTime, e.toString())
+            log.info("[{}] {}{} time={}ms ex={}", traceId.id, addSpace(exPrefix, traceId.level), status.message, resultTime, e.toString())
         }
     }
 
     private fun addSpace(prefix: String, level: Int): String {
         val sb = StringBuilder()
-//        val levelTemp = if (level == -1) 0 else level
+
         for (i in 0 until level) {
             sb.append(if (i == level - 1) "|${prefix}" else "|   ")
+
+            if (level == 0 && (prefix == completePrefix || prefix == exPrefix)) {
+                contextHolder.remove()
+            }
         }
 
         return sb.toString()
